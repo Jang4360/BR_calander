@@ -8,20 +8,36 @@ interface Props {
   shifts: Shift[]
   wage: number
   onSetWage: (wage: number) => void
+  onAddStaff: (name: string) => Promise<Staff>
+  onRenameStaff: (id: string, name: string) => void
   onDeleteStaff: (id: string) => void
   onBack: () => void
 }
 
-const AUTH_KEY = 'br-settle-auth'
-
-export default function Settlement({ staff, shifts, wage, onSetWage, onDeleteStaff, onBack }: Props) {
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem(AUTH_KEY) === '1')
+export default function Settlement({
+  staff,
+  shifts,
+  wage,
+  onSetWage,
+  onAddStaff,
+  onRenameStaff,
+  onDeleteStaff,
+  onBack,
+}: Props) {
+  // 인증 상태를 컴포넌트 안에만 두어, 캘린더로 돌아가면 자동으로 잠김
+  const [authed, setAuthed] = useState(false)
   const [pw, setPw] = useState('')
   const [pwError, setPwError] = useState(false)
-  const [cursor, setCursor] = useState(() => new Date())
+  const now = new Date()
+  const [year, setYear] = useState(now.getFullYear())
+  const [month, setMonth] = useState(now.getMonth() + 1) // 1~12
   const [wageInput, setWageInput] = useState(String(wage))
+  const [newStaffName, setNewStaffName] = useState('')
+  const [addingStaff, setAddingStaff] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
 
-  const ym = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`
+  const ym = `${year}-${String(month).padStart(2, '0')}`
 
   const rows = useMemo(() => {
     const monthShifts = shifts.filter(s => s.date.startsWith(ym))
@@ -37,7 +53,6 @@ export default function Settlement({ staff, shifts, wage, onSetWage, onDeleteSta
 
   function tryAuth() {
     if (pw === SETTLE_PASSWORD) {
-      sessionStorage.setItem(AUTH_KEY, '1')
       setAuthed(true)
       setPwError(false)
     } else {
@@ -56,10 +71,42 @@ export default function Settlement({ staff, shifts, wage, onSetWage, onDeleteSta
     alert('시급이 저장됐어요.')
   }
 
+  async function addStaff() {
+    const name = newStaffName.trim()
+    if (!name || addingStaff) return
+    if (staff.some(s => s.name === name)) {
+      alert('이미 등록된 이름이에요.')
+      return
+    }
+    setAddingStaff(true)
+    try {
+      await onAddStaff(name)
+      setNewStaffName('')
+    } catch (e) {
+      alert(`등록에 실패했어요: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setAddingStaff(false)
+    }
+  }
+
+  function startEdit(st: Staff) {
+    setEditingId(st.id)
+    setEditName(st.name)
+  }
+
+  function saveEdit() {
+    const name = editName.trim()
+    if (!name || !editingId) return
+    if (staff.some(s => s.name === name && s.id !== editingId)) {
+      alert('이미 등록된 이름이에요.')
+      return
+    }
+    onRenameStaff(editingId, name)
+    setEditingId(null)
+  }
+
   function deleteStaff(st: Staff) {
-    if (
-      confirm(`'${st.name}' 알바생을 삭제할까요?\n등록된 일정도 모두 함께 삭제돼요.`)
-    ) {
+    if (confirm(`'${st.name}' 알바생을 삭제할까요?\n등록된 일정도 모두 함께 삭제돼요.`)) {
       onDeleteStaff(st.id)
     }
   }
@@ -96,42 +143,38 @@ export default function Settlement({ staff, shifts, wage, onSetWage, onDeleteSta
     <div className="app">
       <header className="header">
         <div className="header-row">
-          <button
-            className="nav-btn"
-            onClick={() => setCursor(c => new Date(c.getFullYear(), c.getMonth() - 1, 1))}
-            aria-label="이전 달"
-          >
-            ‹
-          </button>
-          <div className="header-title">
-            {cursor.getFullYear()}년 {cursor.getMonth() + 1}월 정산
-          </div>
-          <button
-            className="nav-btn"
-            onClick={() => setCursor(c => new Date(c.getFullYear(), c.getMonth() + 1, 1))}
-            aria-label="다음 달"
-          >
-            ›
-          </button>
-        </div>
-        <div className="header-row header-row2">
           <button className="btn btn-small" onClick={onBack}>
             ‹ 캘린더
           </button>
-          <button
-            className="btn btn-small"
-            onClick={() => {
-              sessionStorage.removeItem(AUTH_KEY)
-              onBack()
-            }}
-          >
-            잠그고 나가기
+          <div className="header-title">정산</div>
+          <span className="header-spacer" />
+        </div>
+        <div className="header-row year-row">
+          <button className="nav-btn" onClick={() => setYear(y => y - 1)} aria-label="이전 해">
+            ‹
           </button>
+          <div className="year-label">{year}년</div>
+          <button className="nav-btn" onClick={() => setYear(y => y + 1)} aria-label="다음 해">
+            ›
+          </button>
+        </div>
+        <div className="settle-month-grid">
+          {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+            <button
+              key={m}
+              className={`month-btn ${m === month ? 'active' : ''}`}
+              onClick={() => setMonth(m)}
+            >
+              {m}월
+            </button>
+          ))}
         </div>
       </header>
 
       <section className="settle-section">
-        <h3>알바생별 정산</h3>
+        <h3>
+          {year}년 {month}월 알바생별 정산
+        </h3>
         {rows.length === 0 ? (
           <p className="empty-text">등록된 알바생이 없어요.</p>
         ) : (
@@ -147,10 +190,7 @@ export default function Settlement({ staff, shifts, wage, onSetWage, onDeleteSta
             <tbody>
               {rows.map(r => (
                 <tr key={r.staff.id} className={r.minutes === 0 ? 'zero' : ''}>
-                  <td>
-                    <span className="dot" style={{ background: r.staff.color }} />
-                    {r.staff.name}
-                  </td>
+                  <td>{r.staff.name}</td>
                   <td>{r.count}회</td>
                   <td>{fmtHours(r.minutes)}</td>
                   <td className="money">{fmtMoney(r.pay)}</td>
@@ -187,17 +227,49 @@ export default function Settlement({ staff, shifts, wage, onSetWage, onDeleteSta
 
       <section className="settle-section">
         <h3>알바생 관리</h3>
-        {staff.length === 0 ? (
-          <p className="empty-text">캘린더에서 일정을 추가할 때 알바생을 등록할 수 있어요.</p>
-        ) : (
+        <div className="new-staff-row">
+          <input
+            className="text-input"
+            placeholder="새 알바생 이름"
+            value={newStaffName}
+            onChange={e => setNewStaffName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addStaff()}
+          />
+          <button className="btn btn-primary" onClick={addStaff} disabled={addingStaff}>
+            추가
+          </button>
+        </div>
+        {staff.length > 0 && (
           <ul className="staff-manage-list">
             {staff.map(st => (
               <li key={st.id}>
-                <span className="dot" style={{ background: st.color }} />
-                <span className="staff-name">{st.name}</span>
-                <button className="btn btn-small btn-danger" onClick={() => deleteStaff(st)}>
-                  삭제
-                </button>
+                {editingId === st.id ? (
+                  <>
+                    <input
+                      className="text-input staff-edit-input"
+                      value={editName}
+                      autoFocus
+                      onChange={e => setEditName(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && saveEdit()}
+                    />
+                    <button className="btn btn-small btn-primary" onClick={saveEdit}>
+                      저장
+                    </button>
+                    <button className="btn btn-small" onClick={() => setEditingId(null)}>
+                      취소
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="staff-name">{st.name}</span>
+                    <button className="btn btn-small" onClick={() => startEdit(st)}>
+                      수정
+                    </button>
+                    <button className="btn btn-small btn-danger" onClick={() => deleteStaff(st)}>
+                      삭제
+                    </button>
+                  </>
+                )}
               </li>
             ))}
           </ul>

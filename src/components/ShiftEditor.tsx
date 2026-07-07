@@ -1,7 +1,15 @@
 import { useState } from 'react'
 import { Shift, Staff } from '../types'
 import { fmtDayTitle, minToStr } from '../util'
-import { matchPreset, presetTimes, presetTimeLabel, PRESET_NAMES, PresetKey } from '../presets'
+import {
+  classifyShift,
+  presetTimes,
+  presetTimeLabel,
+  PRESET_COLORS,
+  PRESET_NAMES,
+  PRESET_ORDER,
+  PresetKey,
+} from '../presets'
 
 export interface EditorTarget {
   shift?: Shift
@@ -20,7 +28,7 @@ interface Props {
   target: EditorTarget
   staff: Staff[]
   onClose: () => void
-  onSave: (input: ShiftInput) => void
+  onSave: (input: ShiftInput) => Promise<void>
   onDelete: (id: string) => void
   onAddStaff: (name: string) => Promise<Staff>
 }
@@ -36,33 +44,47 @@ export default function ShiftEditor({ target, staff, onClose, onSave, onDelete, 
   const [newName, setNewName] = useState('')
   const [showNewStaff, setShowNewStaff] = useState(staff.length === 0)
   const [saving, setSaving] = useState(false)
+  const [addingStaff, setAddingStaff] = useState(false)
 
-  const activePreset = matchPreset(date, start, end)
+  // 현재 시간이 어떤 시간대(조합)에 해당하는지 (±1시간 오차 허용)
+  const active = classifyShift(date, start, end)
 
-  function applyPreset(key: PresetKey) {
-    const t = presetTimes(key, date)
-    setStart(t.start)
-    setEnd(t.end)
+  function applyCombo(keys: PresetKey[], targetDate: string) {
+    setStart(presetTimes(keys[0], targetDate).start)
+    setEnd(presetTimes(keys[keys.length - 1], targetDate).end)
+  }
+
+  // 시간대 버튼 토글 (중복 선택 가능, 사이가 비면 자동으로 이어짐)
+  function togglePreset(key: PresetKey) {
+    const set = new Set(active)
+    if (set.has(key)) {
+      if (set.size <= 1) {
+        // 마지막 하나를 다시 누르면 그 시간대의 기본 시간으로 리셋
+        applyCombo([key], date)
+        return
+      }
+      set.delete(key)
+    } else {
+      set.add(key)
+    }
+    applyCombo(PRESET_ORDER.filter(k => set.has(k)), date)
   }
 
   function changeDate(newDate: string) {
     if (!newDate) return
-    // 프리셋(오픈)은 요일마다 시간이 다르므로 날짜 변경 시 다시 계산
-    if (activePreset) {
-      const t = presetTimes(activePreset, newDate)
-      setStart(t.start)
-      setEnd(t.end)
-    }
+    // 오픈은 요일마다 시간이 다르므로 날짜 변경 시 선택된 시간대를 다시 계산
+    if (active.length) applyCombo(active, newDate)
     setDate(newDate)
   }
 
   async function addStaff() {
     const name = newName.trim()
-    if (!name) return
+    if (!name || addingStaff) return
     if (staff.some(s => s.name === name)) {
       alert('이미 등록된 이름이에요.')
       return
     }
+    setAddingStaff(true)
     try {
       const s = await onAddStaff(name)
       setStaffId(s.id)
@@ -70,10 +92,13 @@ export default function ShiftEditor({ target, staff, onClose, onSave, onDelete, 
       setShowNewStaff(false)
     } catch (e) {
       alert(`등록에 실패했어요: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setAddingStaff(false)
     }
   }
 
-  function save() {
+  async function save() {
+    if (saving) return
     if (!staffId) {
       alert('알바생을 선택해주세요.')
       return
@@ -83,7 +108,8 @@ export default function ShiftEditor({ target, staff, onClose, onSave, onDelete, 
       return
     }
     setSaving(true)
-    onSave({ id: editing?.id, staff_id: staffId, date, start_min: start, end_min: end })
+    await onSave({ id: editing?.id, staff_id: staffId, date, start_min: start, end_min: end })
+    setSaving(false)
   }
 
   const startOptions: number[] = []
@@ -136,21 +162,24 @@ export default function ShiftEditor({ target, staff, onClose, onSave, onDelete, 
               onChange={e => setNewName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && addStaff()}
             />
-            <button className="btn btn-primary" onClick={addStaff}>
+            <button className="btn btn-primary" onClick={addStaff} disabled={addingStaff}>
               등록
             </button>
           </div>
         )}
 
-        <label className="field-label">근무 시간대</label>
+        <label className="field-label">근무 시간대 (중복 선택 가능)</label>
         <div className="preset-row">
-          {(['open', 'middle', 'close'] as PresetKey[]).map(key => (
+          {PRESET_ORDER.map(key => (
             <button
               key={key}
-              className={`preset-btn ${activePreset === key ? 'active' : ''}`}
-              onClick={() => applyPreset(key)}
+              className={`preset-btn ${active.includes(key) ? 'active' : ''}`}
+              onClick={() => togglePreset(key)}
             >
-              <span className="preset-name">{PRESET_NAMES[key]}</span>
+              <span className="preset-name">
+                <span className="preset-dot" style={{ background: PRESET_COLORS[key].bg }} />
+                {PRESET_NAMES[key]}
+              </span>
               <span className="preset-time">{presetTimeLabel(key, date)}</span>
             </button>
           ))}

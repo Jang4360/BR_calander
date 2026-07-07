@@ -48,7 +48,7 @@ export default function App() {
     return m
   }, [data?.staff])
 
-  async function guard(fn: () => Promise<void>) {
+  async function guard(fn: () => Promise<void>): Promise<void> {
     try {
       await fn()
     } catch (e) {
@@ -61,6 +61,15 @@ export default function App() {
     const s = await store.addStaff(name.trim(), color)
     setData(d => (d ? { ...d, staff: [...d.staff, s] } : d))
     return s
+  }
+
+  function handleRenameStaff(id: string, name: string) {
+    guard(async () => {
+      await store.updateStaff(id, name)
+      setData(d =>
+        d ? { ...d, staff: d.staff.map(s => (s.id === id ? { ...s, name } : s)) } : d,
+      )
+    })
   }
 
   function handleDeleteStaff(id: string) {
@@ -78,8 +87,8 @@ export default function App() {
     })
   }
 
-  function handleSaveShift(input: ShiftInput) {
-    guard(async () => {
+  function handleSaveShift(input: ShiftInput): Promise<void> {
+    return guard(async () => {
       if (input.id) {
         const shift: Shift = { ...input, id: input.id }
         await store.updateShift(shift)
@@ -153,6 +162,8 @@ export default function App() {
         shifts={data.shifts}
         wage={data.wage}
         onSetWage={handleSetWage}
+        onAddStaff={handleAddStaff}
+        onRenameStaff={handleRenameStaff}
         onDeleteStaff={handleDeleteStaff}
         onBack={() => setPage('calendar')}
       />

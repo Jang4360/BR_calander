@@ -77,6 +77,16 @@ export const store = {
     return data as Staff
   },
 
+  async updateStaff(id: string, name: string): Promise<void> {
+    if (!sb) {
+      lsMutate(d => {
+        d.staff = d.staff.map(s => (s.id === id ? { ...s, name } : s))
+      })
+      return
+    }
+    fail((await sb.from('staff').update({ name }).eq('id', id)).error)
+  },
+
   async deleteStaff(id: string): Promise<void> {
     if (!sb) {
       lsMutate(d => {

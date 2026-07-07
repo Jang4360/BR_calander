@@ -1,6 +1,6 @@
 import { Shift, Staff } from '../types'
 import { fmtDayTitle, minToStr } from '../util'
-import { matchPreset, PRESET_NAMES } from '../presets'
+import { classifyShift, comboLabel, shiftColor } from '../presets'
 
 interface Props {
   date: string
@@ -31,14 +31,22 @@ export default function DaySheet({ date, shifts, staffById, onClose, onAdd, onEd
           <ul className="shift-list">
             {sorted.map(s => {
               const st = staffById.get(s.staff_id)
-              const preset = matchPreset(s.date, s.start_min, s.end_min)
+              const combo = classifyShift(s.date, s.start_min, s.end_min)
+              const col = shiftColor(s.date, s.start_min, s.end_min)
               return (
                 <li key={s.id} className="shift-row">
-                  <span className="dot" style={{ background: st?.color ?? '#999' }} />
+                  <span className="dot" style={{ background: col.bg }} />
                   <div className="shift-info">
                     <div className="shift-name">
                       {st?.name ?? '삭제된 알바생'}
-                      {preset && <span className="preset-badge">{PRESET_NAMES[preset]}</span>}
+                      {combo.length > 0 && (
+                        <span
+                          className="preset-badge"
+                          style={{ background: col.bg, color: col.text }}
+                        >
+                          {comboLabel(combo)}
+                        </span>
+                      )}
                     </div>
                     <div className="shift-time">
                       {minToStr(s.start_min)} ~ {minToStr(s.end_min)}

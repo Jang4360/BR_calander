@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Shift, Staff } from '../types'
 import { WEEKDAYS, addDays, startOfWeek, toDateStr } from '../util'
+import { shiftColor } from '../presets'
 
 interface Props {
   cursor: Date
@@ -9,7 +10,7 @@ interface Props {
   onSelectDate: (date: string) => void
 }
 
-const MAX_CHIPS = 3
+const MAX_CHIPS = 4
 
 export default function MonthView({ cursor, shifts, staffById, onSelectDate }: Props) {
   const year = cursor.getFullYear()
@@ -69,11 +70,12 @@ export default function MonthView({ cursor, shifts, staffById, onSelectDate }: P
                 <span className="cell-chips">
                   {dayShifts.slice(0, MAX_CHIPS).map(s => {
                     const st = staffById.get(s.staff_id)
+                    const col = shiftColor(s.date, s.start_min, s.end_min)
                     return (
                       <span
                         key={s.id}
                         className="cell-chip"
-                        style={{ background: st?.color ?? '#999' }}
+                        style={{ background: col.bg, color: col.text }}
                       >
                         {st?.name ?? '?'}
                       </span>

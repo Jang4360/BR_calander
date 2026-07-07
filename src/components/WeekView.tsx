@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Shift, Staff } from '../types'
 import { WEEKDAYS, addDays, minToStr, startOfWeek, toDateStr } from '../util'
+import { shiftColor } from '../presets'
 
 interface Props {
   cursor: Date
@@ -94,6 +95,7 @@ export default function WeekView({ cursor, shifts, staffById, onSelectDate, onEd
               ))}
               {placements.map(({ shift, lane }) => {
                 const st = staffById.get(shift.staff_id)
+                const col = shiftColor(shift.date, shift.start_min, shift.end_min)
                 const width = 100 / laneCount
                 return (
                   <button
@@ -104,7 +106,8 @@ export default function WeekView({ cursor, shifts, staffById, onSelectDate, onEd
                       height: Math.max(20, (shift.end_min - shift.start_min) * PX_PER_MIN - 2),
                       left: `${lane * width}%`,
                       width: `calc(${width}% - 2px)`,
-                      background: st?.color ?? '#999',
+                      background: col.bg,
+                      color: col.text,
                     }}
                     onClick={e => {
                       e.stopPropagation()
