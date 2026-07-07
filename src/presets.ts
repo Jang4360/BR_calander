@@ -10,11 +10,11 @@ export const PRESET_NAMES: Record<PresetKey, string> = {
   close: '마감',
 }
 
-// 시간대별 색상: 오픈 노랑, 미들 주황, 마감 빨강 (text는 배경 위 글자색)
+// 시간대별 색상 (text는 배경 위 글자색)
 export const PRESET_COLORS: Record<PresetKey, { bg: string; text: string }> = {
-  open: { bg: '#FFC53C', text: '#5b3d00' },
-  middle: { bg: '#FF7D3C', text: '#ffffff' },
-  close: { bg: '#FF3C3C', text: '#ffffff' },
+  open: { bg: '#EB9469', text: '#ffffff' },
+  middle: { bg: '#4EBC6A', text: '#ffffff' },
+  close: { bg: '#2396ED', text: '#ffffff' },
 }
 
 // 어떤 시간대에도 해당하지 않는 일정의 색상

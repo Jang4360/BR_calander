@@ -10,6 +10,7 @@ interface Props {
   onSetWage: (wage: number) => void
   onAddStaff: (name: string) => Promise<Staff>
   onRenameStaff: (id: string, name: string) => void
+  onToggleActive: (id: string, active: boolean) => void
   onDeleteStaff: (id: string) => void
   onBack: () => void
 }
@@ -21,6 +22,7 @@ export default function Settlement({
   onSetWage,
   onAddStaff,
   onRenameStaff,
+  onToggleActive,
   onDeleteStaff,
   onBack,
 }: Props) {
@@ -109,6 +111,51 @@ export default function Settlement({
     if (confirm(`'${st.name}' 알바생을 삭제할까요?\n등록된 일정도 모두 함께 삭제돼요.`)) {
       onDeleteStaff(st.id)
     }
+  }
+
+  const currentStaff = staff.filter(s => s.active !== false)
+  const pastStaff = staff.filter(s => s.active === false)
+
+  function renderStaffRow(st: Staff, isCurrent: boolean) {
+    return (
+      <li key={st.id}>
+        {editingId === st.id ? (
+          <>
+            <input
+              className="text-input staff-edit-input"
+              value={editName}
+              autoFocus
+              onChange={e => setEditName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && saveEdit()}
+            />
+            <button className="btn btn-small btn-primary" onClick={saveEdit}>
+              저장
+            </button>
+            <button className="btn btn-small" onClick={() => setEditingId(null)}>
+              취소
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              className="btn-arrow"
+              onClick={() => onToggleActive(st.id, !isCurrent)}
+              aria-label={isCurrent ? '이전 근무로 이동' : '현재 근무로 이동'}
+              title={isCurrent ? '이전 근무로 이동' : '현재 근무로 이동'}
+            >
+              {isCurrent ? '↓' : '↑'}
+            </button>
+            <span className="staff-name">{st.name}</span>
+            <button className="btn btn-small" onClick={() => startEdit(st)}>
+              수정
+            </button>
+            <button className="btn btn-small btn-danger" onClick={() => deleteStaff(st)}>
+              삭제
+            </button>
+          </>
+        )}
+      </li>
+    )
   }
 
   if (!authed) {
@@ -239,40 +286,18 @@ export default function Settlement({
             추가
           </button>
         </div>
-        {staff.length > 0 && (
-          <ul className="staff-manage-list">
-            {staff.map(st => (
-              <li key={st.id}>
-                {editingId === st.id ? (
-                  <>
-                    <input
-                      className="text-input staff-edit-input"
-                      value={editName}
-                      autoFocus
-                      onChange={e => setEditName(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && saveEdit()}
-                    />
-                    <button className="btn btn-small btn-primary" onClick={saveEdit}>
-                      저장
-                    </button>
-                    <button className="btn btn-small" onClick={() => setEditingId(null)}>
-                      취소
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <span className="staff-name">{st.name}</span>
-                    <button className="btn btn-small" onClick={() => startEdit(st)}>
-                      수정
-                    </button>
-                    <button className="btn btn-small btn-danger" onClick={() => deleteStaff(st)}>
-                      삭제
-                    </button>
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
+        <h4 className="staff-group-title">현재 근무</h4>
+        {currentStaff.length > 0 ? (
+          <ul className="staff-manage-list">{currentStaff.map(st => renderStaffRow(st, true))}</ul>
+        ) : (
+          <p className="empty-text">현재 근무 중인 알바생이 없어요.</p>
+        )}
+
+        <h4 className="staff-group-title">이전 근무</h4>
+        {pastStaff.length > 0 ? (
+          <ul className="staff-manage-list">{pastStaff.map(st => renderStaffRow(st, false))}</ul>
+        ) : (
+          <p className="empty-text">이전 근무 알바생이 없어요.</p>
         )}
       </section>
     </div>

@@ -46,6 +46,9 @@ export default function ShiftEditor({ target, staff, onClose, onSave, onDelete, 
   const [saving, setSaving] = useState(false)
   const [addingStaff, setAddingStaff] = useState(false)
 
+  // 선택지는 현재 근무자만. 단, 수정 중인 일정의 담당자가 이전 근무자면 그 사람은 표시
+  const selectableStaff = staff.filter(s => s.active !== false || s.id === staffId)
+
   // 현재 시간이 어떤 시간대(조합)에 해당하는지 (±1시간 오차 허용)
   const active = classifyShift(date, start, end)
 
@@ -140,7 +143,7 @@ export default function ShiftEditor({ target, staff, onClose, onSave, onDelete, 
 
         <label className="field-label">알바생</label>
         <div className="staff-chips">
-          {staff.map(s => (
+          {selectableStaff.map(s => (
             <button
               key={s.id}
               className={`chip ${staffId === s.id ? 'active' : ''}`}

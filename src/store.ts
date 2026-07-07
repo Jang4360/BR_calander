@@ -77,6 +77,16 @@ export const store = {
     return data as Staff
   },
 
+  async setStaffActive(id: string, active: boolean): Promise<void> {
+    if (!sb) {
+      lsMutate(d => {
+        d.staff = d.staff.map(s => (s.id === id ? { ...s, active } : s))
+      })
+      return
+    }
+    fail((await sb.from('staff').update({ active }).eq('id', id)).error)
+  },
+
   async updateStaff(id: string, name: string): Promise<void> {
     if (!sb) {
       lsMutate(d => {
@@ -109,6 +119,17 @@ export const store = {
     const { data, error } = await sb.from('shifts').insert(input).select().single()
     fail(error)
     return data as Shift
+  },
+
+  async addShifts(inputs: Omit<Shift, 'id'>[]): Promise<Shift[]> {
+    if (!sb) {
+      const arr: Shift[] = inputs.map(i => ({ id: crypto.randomUUID(), ...i }))
+      lsMutate(d => d.shifts.push(...arr))
+      return arr
+    }
+    const { data, error } = await sb.from('shifts').insert(inputs).select()
+    fail(error)
+    return (data ?? []) as Shift[]
   },
 
   async updateShift(shift: Shift): Promise<void> {

@@ -4,7 +4,7 @@
 
 ## 주요 기능
 
-- **월 / 주 보기** — 애플 캘린더처럼 전환하며 일정 확인
+- **월 캘린더** — 하루 4개까지 일정 표시, "월 전체 복사"로 첫 주 패턴을 그 달 전체에 복사
 - **날짜 탭 → 큰 버튼으로 추가/수정/삭제** — 드래그 없이 누구나 쓸 수 있게
 - **오픈 / 미들 / 마감 버튼** — 누르면 시간이 자동 입력
   - 오픈: 월수금 10:30~14:00 / 화목토일 11:00~14:00
@@ -36,6 +36,7 @@ Supabase 환경변수가 없으면 **임시 저장 모드**(localStorage, 이 �
 create table staff (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  active boolean not null default true,
   created_at timestamptz default now()
 );
 

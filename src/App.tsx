@@ -2,9 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Shift, Staff } from './types'
 import { StoreData } from './types'
 import { store, usingCloud } from './store'
-import { addDays, startOfWeek, toDateStr } from './util'
+import { toDateStr } from './util'
 import MonthView from './components/MonthView'
-import WeekView from './components/WeekView'
 import DaySheet from './components/DaySheet'
 import ShiftEditor, { EditorTarget, ShiftInput } from './components/ShiftEditor'
 import Settlement from './components/Settlement'
@@ -13,7 +12,6 @@ export default function App() {
   const [data, setData] = useState<StoreData | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [page, setPage] = useState<'calendar' | 'settle'>('calendar')
-  const [view, setView] = useState<'month' | 'week'>('month')
   const [cursor, setCursor] = useState(() => new Date())
   const [sheetDate, setSheetDate] = useState<string | null>(null)
   const [editor, setEditor] = useState<EditorTarget | null>(null)
@@ -59,6 +57,15 @@ export default function App() {
     const s = await store.addStaff(name.trim())
     setData(d => (d ? { ...d, staff: [...d.staff, s] } : d))
     return s
+  }
+
+  function handleToggleStaffActive(id: string, active: boolean) {
+    guard(async () => {
+      await store.setStaffActive(id, active)
+      setData(d =>
+        d ? { ...d, staff: d.staff.map(s => (s.id === id ? { ...s, active } : s)) } : d,
+      )
+    })
   }
 
   function handleRenameStaff(id: string, name: string) {
@@ -125,9 +132,61 @@ export default function App() {
   }
 
   function moveCursor(dir: -1 | 1) {
-    setCursor(c => {
-      if (view === 'month') return new Date(c.getFullYear(), c.getMonth() + dir, 1)
-      return addDays(c, dir * 7)
+    setCursor(c => new Date(c.getFullYear(), c.getMonth() + dir, 1))
+  }
+
+  // 요일별로 일정이 처음 입력된 날을 패턴으로 삼아, 이후 같은 요일에 복사 (이 달 안에서만)
+  function handleCopyMonth() {
+    if (!data) return
+    const y = cursor.getFullYear()
+    const m = cursor.getMonth()
+    const daysInMonth = new Date(y, m + 1, 0).getDate()
+
+    // 요일(0~6)별 첫 일정이 있는 날짜 찾기
+    const srcDayOfWeekday = new Map<number, number>()
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(y, m, d)
+      const wd = date.getDay()
+      if (srcDayOfWeekday.has(wd)) continue
+      if (data.shifts.some(s => s.date === toDateStr(date))) srcDayOfWeekday.set(wd, d)
+    }
+
+    const toCreate: Omit<Shift, 'id'>[] = []
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(y, m, d)
+      const srcDay = srcDayOfWeekday.get(date.getDay())
+      if (srcDay === undefined || d <= srcDay) continue
+      const ds = toDateStr(date)
+      const srcDs = toDateStr(new Date(y, m, srcDay))
+      for (const s of data.shifts.filter(sh => sh.date === srcDs)) {
+        const exists = data.shifts.some(
+          t =>
+            t.date === ds &&
+            t.staff_id === s.staff_id &&
+            t.start_min === s.start_min &&
+            t.end_min === s.end_min,
+        )
+        if (!exists) {
+          toCreate.push({ staff_id: s.staff_id, date: ds, start_min: s.start_min, end_min: s.end_min })
+        }
+      }
+    }
+
+    if (toCreate.length === 0) {
+      alert(`${m + 1}월에 복사할 일정이 없거나, 이미 모두 복사되어 있어요.`)
+      return
+    }
+    if (
+      !confirm(
+        `요일별로 처음 입력된 날의 일정을 ${m + 1}월의 이후 같은 요일에 복사할까요?\n총 ${toCreate.length}개의 일정이 추가돼요. (다음 달에는 생성되지 않아요)`,
+      )
+    ) {
+      return
+    }
+    guard(async () => {
+      const created = await store.addShifts(toCreate)
+      setData(d => (d ? { ...d, shifts: [...d.shifts, ...created] } : d))
+      alert(`${created.length}개의 일정을 복사했어요.`)
     })
   }
 
@@ -162,18 +221,14 @@ export default function App() {
         onSetWage={handleSetWage}
         onAddStaff={handleAddStaff}
         onRenameStaff={handleRenameStaff}
+        onToggleActive={handleToggleStaffActive}
         onDeleteStaff={handleDeleteStaff}
         onBack={() => setPage('calendar')}
       />
     )
   }
 
-  const weekStart = startOfWeek(cursor)
-  const weekEnd = addDays(weekStart, 6)
-  const title =
-    view === 'month'
-      ? `${cursor.getFullYear()}년 ${cursor.getMonth() + 1}월`
-      : `${weekStart.getMonth() + 1}월 ${weekStart.getDate()}일 ~ ${weekEnd.getMonth() + 1}월 ${weekEnd.getDate()}일`
+  const title = `${cursor.getFullYear()}년 ${cursor.getMonth() + 1}월`
 
   return (
     <div className="app">
@@ -191,20 +246,9 @@ export default function App() {
           <button className="btn btn-small" onClick={() => setCursor(new Date())}>
             오늘
           </button>
-          <div className="segment">
-            <button
-              className={view === 'month' ? 'seg-btn active' : 'seg-btn'}
-              onClick={() => setView('month')}
-            >
-              월
-            </button>
-            <button
-              className={view === 'week' ? 'seg-btn active' : 'seg-btn'}
-              onClick={() => setView('week')}
-            >
-              주
-            </button>
-          </div>
+          <button className="btn btn-small" onClick={handleCopyMonth}>
+            월 전체 복사
+          </button>
           <button className="btn btn-small btn-settle" onClick={() => setPage('settle')}>
             정산
           </button>
@@ -215,22 +259,12 @@ export default function App() {
         <div className="notice">임시 저장 모드 — 지금은 이 기기에만 저장돼요</div>
       )}
 
-      {view === 'month' ? (
-        <MonthView
-          cursor={cursor}
-          shifts={data.shifts}
-          staffById={staffById}
-          onSelectDate={d => setSheetDate(d)}
-        />
-      ) : (
-        <WeekView
-          cursor={cursor}
-          shifts={data.shifts}
-          staffById={staffById}
-          onSelectDate={d => setSheetDate(d)}
-          onEditShift={s => setEditor({ shift: s, date: s.date })}
-        />
-      )}
+      <MonthView
+        cursor={cursor}
+        shifts={data.shifts}
+        staffById={staffById}
+        onSelectDate={d => setSheetDate(d)}
+      />
 
       <div className="hint">날짜를 누르면 일정을 보고 추가할 수 있어요</div>
 
