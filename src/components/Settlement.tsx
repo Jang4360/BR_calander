@@ -140,7 +140,7 @@ export default function Settlement({
   }
 
   return (
-    <div className="app">
+    <div className="app app-settle">
       <header className="header">
         <div className="header-row">
           <button className="btn btn-small" onClick={onBack}>

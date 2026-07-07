@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Shift, Staff } from './types'
 import { StoreData } from './types'
 import { store, usingCloud } from './store'
-import { STAFF_COLORS } from './config'
 import { addDays, startOfWeek, toDateStr } from './util'
 import MonthView from './components/MonthView'
 import WeekView from './components/WeekView'
@@ -57,8 +56,7 @@ export default function App() {
   }
 
   async function handleAddStaff(name: string): Promise<Staff> {
-    const color = STAFF_COLORS[(data?.staff.length ?? 0) % STAFF_COLORS.length]
-    const s = await store.addStaff(name.trim(), color)
+    const s = await store.addStaff(name.trim())
     setData(d => (d ? { ...d, staff: [...d.staff, s] } : d))
     return s
   }

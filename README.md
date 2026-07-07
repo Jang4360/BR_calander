@@ -10,7 +10,8 @@
   - 오픈: 월수금 10:30~14:00 / 화목토일 11:00~14:00
   - 미들: 14:00~18:00 / 마감: 18:00~23:00
 - **30분 단위 시간 조정**
-- **알바생 목록 관리** — 이름은 등록된 목록에서 선택, 사람마다 색상 자동 배정
+- **알바생 목록 관리** — 이름은 등록된 목록에서 선택, 정산 페이지에서 추가/수정/삭제
+- **시간대별 색상** — 오픈 노랑 / 미들 주황 / 마감 빨강 (±1시간 오차까지 자동 분류)
 - **정산 페이지 (비밀번호 보호)** — 월별로 알바생마다 근무 횟수·시간·금액 집계, 시급 수정 가능
 
 정산 비밀번호와 기본 시급은 [src/config.ts](src/config.ts)에서 변경할 수 있어요.
@@ -35,7 +36,6 @@ Supabase 환경변수가 없으면 **임시 저장 모드**(localStorage, 이 �
 create table staff (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  color text not null,
   created_at timestamptz default now()
 );
 

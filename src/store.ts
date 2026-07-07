@@ -66,13 +66,13 @@ export const store = {
     }
   },
 
-  async addStaff(name: string, color: string): Promise<Staff> {
+  async addStaff(name: string): Promise<Staff> {
     if (!sb) {
-      const s: Staff = { id: crypto.randomUUID(), name, color }
+      const s: Staff = { id: crypto.randomUUID(), name }
       lsMutate(d => d.staff.push(s))
       return s
     }
-    const { data, error } = await sb.from('staff').insert({ name, color }).select().single()
+    const { data, error } = await sb.from('staff').insert({ name }).select().single()
     fail(error)
     return data as Staff
   },

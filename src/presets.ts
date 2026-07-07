@@ -12,7 +12,7 @@ export const PRESET_NAMES: Record<PresetKey, string> = {
 
 // 시간대별 색상: 오픈 노랑, 미들 주황, 마감 빨강 (text는 배경 위 글자색)
 export const PRESET_COLORS: Record<PresetKey, { bg: string; text: string }> = {
-  open: { bg: '#FCFF3C', text: '#4a4a00' },
+  open: { bg: '#FFC53C', text: '#5b3d00' },
   middle: { bg: '#FF7D3C', text: '#ffffff' },
   close: { bg: '#FF3C3C', text: '#ffffff' },
 }

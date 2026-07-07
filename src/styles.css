@@ -632,9 +632,19 @@ button {
   min-width: 0;
 }
 
+/* 정산 페이지는 하단 플로팅 버튼이 없으므로 여백 예약 불필요 */
+.app-settle {
+  padding-bottom: 16px;
+}
 .settle-section {
   padding: 16px;
   border-bottom: 8px solid #f6f6f8;
+}
+.settle-section:last-child {
+  border-bottom: none;
+}
+.settle-section .new-staff-row .text-input {
+  flex: 0 1 66%;
 }
 .settle-section h3 {
   margin: 0 0 12px;
@@ -683,7 +693,7 @@ button {
   gap: 8px;
 }
 .wage-row .text-input {
-  flex: 1;
+  flex: 0 1 66%;
   min-width: 0;
 }
 .staff-manage-list {
