@@ -135,30 +135,39 @@ export default function App() {
     setCursor(c => new Date(c.getFullYear(), c.getMonth() + dir, 1))
   }
 
-  // 요일별로 일정이 처음 입력된 날을 패턴으로 삼아, 이후 같은 요일에 복사 (이 달 안에서만)
-  function handleCopyMonth() {
-    if (!data) return
-    const y = cursor.getFullYear()
-    const m = cursor.getMonth()
+  // 해당 월의 첫 주 패턴: 요일별로 일정이 처음 입력된 날짜와 그 날의 일정 목록
+  function firstWeekPattern(y: number, m: number): Map<number, { day: number; shifts: Shift[] }> {
+    const pattern = new Map<number, { day: number; shifts: Shift[] }>()
+    if (!data) return pattern
     const daysInMonth = new Date(y, m + 1, 0).getDate()
-
-    // 요일(0~6)별 첫 일정이 있는 날짜 찾기
-    const srcDayOfWeekday = new Map<number, number>()
     for (let d = 1; d <= daysInMonth; d++) {
       const date = new Date(y, m, d)
       const wd = date.getDay()
-      if (srcDayOfWeekday.has(wd)) continue
-      if (data.shifts.some(s => s.date === toDateStr(date))) srcDayOfWeekday.set(wd, d)
+      if (pattern.has(wd)) continue
+      const dayShifts = data.shifts.filter(s => s.date === toDateStr(date))
+      if (dayShifts.length) pattern.set(wd, { day: d, shifts: dayShifts })
     }
+    return pattern
+  }
 
+  // 패턴을 (y, m)월의 같은 요일에 복사할 일정 목록 생성. 이미 있는 동일 일정은 제외.
+  // skipSourceMonth=true면 패턴이 이번 달 것이므로 기준일 이전 날짜는 건너뜀
+  function planCopies(
+    pattern: Map<number, { day: number; shifts: Shift[] }>,
+    y: number,
+    m: number,
+    skipSourceMonth: boolean,
+  ): Omit<Shift, 'id'>[] {
+    if (!data) return []
+    const daysInMonth = new Date(y, m + 1, 0).getDate()
     const toCreate: Omit<Shift, 'id'>[] = []
     for (let d = 1; d <= daysInMonth; d++) {
       const date = new Date(y, m, d)
-      const srcDay = srcDayOfWeekday.get(date.getDay())
-      if (srcDay === undefined || d <= srcDay) continue
+      const p = pattern.get(date.getDay())
+      if (!p) continue
+      if (skipSourceMonth && d <= p.day) continue
       const ds = toDateStr(date)
-      const srcDs = toDateStr(new Date(y, m, srcDay))
-      for (const s of data.shifts.filter(sh => sh.date === srcDs)) {
+      for (const s of p.shifts) {
         const exists = data.shifts.some(
           t =>
             t.date === ds &&
@@ -171,23 +180,49 @@ export default function App() {
         }
       }
     }
+    return toCreate
+  }
 
-    if (toCreate.length === 0) {
-      alert(`${m + 1}월에 복사할 일정이 없거나, 이미 모두 복사되어 있어요.`)
-      return
-    }
-    if (
-      !confirm(
-        `요일별로 처음 입력된 날의 일정을 ${m + 1}월의 이후 같은 요일에 복사할까요?\n총 ${toCreate.length}개의 일정이 추가돼요. (다음 달에는 생성되지 않아요)`,
-      )
-    ) {
-      return
-    }
+  function runCopy(toCreate: Omit<Shift, 'id'>[], confirmMsg: string) {
+    if (!confirm(`${confirmMsg}\n총 ${toCreate.length}개의 일정이 추가돼요.`)) return
     guard(async () => {
       const created = await store.addShifts(toCreate)
       setData(d => (d ? { ...d, shifts: [...d.shifts, ...created] } : d))
       alert(`${created.length}개의 일정을 복사했어요.`)
     })
+  }
+
+  // 이번 달 첫 주 일정을 이 달의 나머지 같은 요일에 복사
+  function handleCopyFirstWeek() {
+    const y = cursor.getFullYear()
+    const m = cursor.getMonth()
+    const toCreate = planCopies(firstWeekPattern(y, m), y, m, true)
+    if (toCreate.length === 0) {
+      alert(`${m + 1}월에 복사할 일정이 없거나, 이미 모두 복사되어 있어요.`)
+      return
+    }
+    runCopy(toCreate, `${m + 1}월 첫 주 일정을 ${m + 1}월의 이후 같은 요일에 복사할까요?`)
+  }
+
+  // 지난달 첫 주 일정을 이번 달 전체에 복사
+  function handleCopyPrevMonth() {
+    const y = cursor.getFullYear()
+    const m = cursor.getMonth()
+    const prev = new Date(y, m - 1, 1)
+    const pattern = firstWeekPattern(prev.getFullYear(), prev.getMonth())
+    if (pattern.size === 0) {
+      alert(`${prev.getMonth() + 1}월에 입력된 일정이 없어요.`)
+      return
+    }
+    const toCreate = planCopies(pattern, y, m, false)
+    if (toCreate.length === 0) {
+      alert(`이미 모두 복사되어 있어요.`)
+      return
+    }
+    runCopy(
+      toCreate,
+      `${prev.getMonth() + 1}월 첫 주 일정을 ${m + 1}월 전체의 같은 요일에 복사할까요?`,
+    )
   }
 
   if (loadError) {
@@ -246,8 +281,11 @@ export default function App() {
           <button className="btn btn-small" onClick={() => setCursor(new Date())}>
             오늘
           </button>
-          <button className="btn btn-small" onClick={handleCopyMonth}>
-            월 전체 복사
+          <button className="btn btn-small" onClick={handleCopyFirstWeek}>
+            첫 주 복사
+          </button>
+          <button className="btn btn-small" onClick={handleCopyPrevMonth}>
+            전월 복사
           </button>
           <button className="btn btn-small btn-settle" onClick={() => setPage('settle')}>
             정산
