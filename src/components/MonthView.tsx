@@ -8,11 +8,16 @@ interface Props {
   shifts: Shift[]
   staffById: Map<string, Staff>
   onSelectDate: (date: string) => void
+  // 지정되면 날짜 탭이 일정 보기 대신 이 콜백으로 연결되고, rangeHighlight 구간이 강조 표시됨
+  pickMode?: {
+    onPick: (date: string) => void
+    rangeHighlight: { start: string; end: string } | null
+  }
 }
 
 const MAX_CHIPS = 4
 
-export default function MonthView({ cursor, shifts, staffById, onSelectDate }: Props) {
+export default function MonthView({ cursor, shifts, staffById, onSelectDate, pickMode }: Props) {
   const year = cursor.getFullYear()
   const month = cursor.getMonth()
   const todayStr = toDateStr(new Date())
@@ -55,13 +60,22 @@ export default function MonthView({ cursor, shifts, staffById, onSelectDate }: P
             const ds = toDateStr(d)
             const inMonth = d.getMonth() === month
             const dayShifts = shiftsByDate.get(ds) ?? []
+            const inHighlight =
+              !!pickMode?.rangeHighlight &&
+              ds >= pickMode.rangeHighlight.start &&
+              ds <= pickMode.rangeHighlight.end
             const cls = [
               'month-cell',
               inMonth ? '' : 'dim',
               ds === todayStr ? 'today' : '',
+              inHighlight ? 'range-pick' : '',
             ].join(' ')
             return (
-              <button key={ds} className={cls} onClick={() => onSelectDate(ds)}>
+              <button
+                key={ds}
+                className={cls}
+                onClick={() => (pickMode ? pickMode.onPick(ds) : onSelectDate(ds))}
+              >
                 <span
                   className={`day-num ${d.getDay() === 0 ? 'sun' : ''} ${d.getDay() === 6 ? 'sat' : ''}`}
                 >
