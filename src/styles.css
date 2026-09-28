@@ -162,9 +162,10 @@ button {
 
 .week-copy-row {
   gap: 8px;
+  justify-content: flex-start;
 }
 .week-copy-select {
-  flex: 1;
+  flex: 0 1 33%;
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 10px;
